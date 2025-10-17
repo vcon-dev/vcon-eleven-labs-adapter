@@ -1,0 +1,39 @@
+elevenlabs:
+  api_key: ${ELEVENLABS_API_KEY}
+  agent_ids: all
+  poll_interval: 300
+  batch_size: 10
+  timeout: 30
+
+exporters:
+  file:
+    enabled: true
+    directory: ./vcons
+    overwrite: false
+
+  s3:
+    enabled: false
+    bucket: ${AWS_S3_BUCKET}
+    region: ${AWS_REGION}
+    prefix: elevenlabs/
+    encryption: none
+
+  webhook:
+    enabled: false
+    url: ${WEBHOOK_URL}
+    api_key: ${WEBHOOK_API_KEY}
+    auth_type: none
+    batch_size: 10
+    retry_attempts: 3
+
+logging:
+  level: INFO
+  file: adapter.log
+  console: true
+  format: json
+
+vcon:
+  include_analysis: true
+  include_attachments: true
+  sign: false
+  encryption: none
