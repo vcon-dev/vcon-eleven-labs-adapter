@@ -6,17 +6,29 @@ import os
 import yaml
 from pathlib import Path
 from typing import Any, Dict, Optional
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, Field, ConfigDict, field_validator
 
 
 class ElevenLabsConfig(BaseModel):
     """ElevenLabs configuration"""
 
     api_key: str
-    agent_ids: list = Field(default_factory=list)
+    agent_ids: Any = Field(default_factory=list)
     poll_interval: int = 300
     batch_size: int = 10
     timeout: int = 30
+
+    @field_validator("agent_ids", mode="before")
+    @classmethod
+    def validate_agent_ids(cls, v):
+        """Validate and normalize agent_ids - can be 'all' string or list of IDs"""
+        if isinstance(v, str):
+            # Keep "all" as a string for the adapter to handle
+            return v
+        if isinstance(v, list):
+            return v
+        # Default to empty list
+        return []
 
 
 class FileExporterConfig(BaseModel):

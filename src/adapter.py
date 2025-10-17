@@ -194,6 +194,44 @@ class ElevenLabsVconAdapter:
     def _process_conversation(self, conversation: Conversation):
         """Internal method to convert conversation to vCon"""
         try:
+            # Fetch and save audio if file exporter is enabled
+            audio_url = None
+            if "file" in self.exporters:
+                audio_bytes = self.extractor.get_conversation_audio(conversation.id)
+                if audio_bytes:
+                    # Save audio file
+                    audio_path = self.exporters["file"].save_audio(
+                        audio_bytes, conversation.id, format="mp3"
+                    )
+                    # Create relative URL for the vCon
+                    audio_url = f"audio/{conversation.id}.mp3"
+                    logger.info(f"Saved audio for conversation {conversation.id}")
+
+                    # Update conversation audio info
+                    from src.models.elevenlabs_models import AudioRecording
+                    conversation.audio = AudioRecording(
+                        url=audio_url,
+                        duration_ms=conversation.duration_ms or 0,
+                        sample_rate=16000,
+                        channels=1,
+                        format="mp3",
+                        size_bytes=len(audio_bytes)
+                    )
+
+            # Fetch transcript
+            transcript_data = self.extractor.get_conversation_transcript(conversation.id)
+            if transcript_data:
+                # Update conversation with transcript
+                from src.models.elevenlabs_models import Transcript
+                conversation.transcript = Transcript(
+                    text=transcript_data.get("full_text", ""),
+                    language="en",
+                    confidence=None
+                )
+
+                # Store structured transcript and analysis for vCon
+                conversation._transcript_data = transcript_data
+
             vcon = self.builder.build_vcon(conversation)
             return vcon
 

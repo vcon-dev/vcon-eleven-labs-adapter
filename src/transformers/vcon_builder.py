@@ -73,6 +73,8 @@ class VconBuilder:
         """Add parties to vCon"""
         try:
             parties = PartyMapper.map_parties(conversation)
+            logger.debug(f"Mapped {len(parties)} parties from conversation")
+
             for party in parties:
                 vcon.add_party(party)
 
@@ -80,17 +82,23 @@ class VconBuilder:
 
         except Exception as e:
             logger.error(f"Error adding parties: {str(e)}")
+            raise
 
     def _add_dialogs(self, vcon: Vcon, conversation: Conversation):
         """Add dialogs to vCon"""
         try:
-            # vcon.parties is a list of dicts with 'id' key
+            # vcon.parties is a list of Party objects or dicts
             party_indices = {}
             for i, party in enumerate(vcon.parties):
                 if isinstance(party, dict):
-                    party_indices[party.get('id')] = i
+                    # Get uuid from dict representation
+                    party_uuid = party.get('uuid') or party.get('id')
+                    if party_uuid:
+                        party_indices[party_uuid] = i
                 else:
-                    party_indices[party.id] = i
+                    # Party object
+                    if hasattr(party, 'uuid') and party.uuid:
+                        party_indices[party.uuid] = i
 
             dialogs = DialogProcessor.process_conversation_dialogs(
                 conversation,
@@ -105,6 +113,7 @@ class VconBuilder:
 
         except Exception as e:
             logger.error(f"Error adding dialogs: {str(e)}")
+            raise
 
     def _add_metadata(self, vcon: Vcon, conversation: Conversation):
         """Add metadata to vCon"""
@@ -150,7 +159,50 @@ class VconBuilder:
     def _add_analysis(self, vcon: Vcon, conversation: Conversation):
         """Add analysis to vCon"""
         try:
-            if conversation.transcript:
+            import json
+
+            # Add structured transcript with turns if available
+            if hasattr(conversation, '_transcript_data') and conversation._transcript_data:
+                transcript_data = conversation._transcript_data
+
+                # Add transcript analysis with full structured data
+                analysis_data = {
+                    "type": "transcript",
+                    "full_text": transcript_data.get("full_text", ""),
+                    "language": "en",
+                    "turns": transcript_data.get("transcript_turns", [])
+                }
+
+                vcon.add_analysis(
+                    type="transcript",
+                    dialog=0,  # First dialog (audio)
+                    vendor="elevenlabs",
+                    body=json.dumps(analysis_data),
+                    encoding="none",
+                )
+
+                # Add call analysis if available
+                if transcript_data.get("analysis"):
+                    analysis_info = transcript_data["analysis"]
+                    call_analysis_data = {
+                        "type": "summary",
+                        "summary": analysis_info.get("summary"),
+                        "title": analysis_info.get("title"),
+                        "call_successful": analysis_info.get("call_successful")
+                    }
+
+                    vcon.add_analysis(
+                        type="summary",
+                        dialog=0,
+                        vendor="elevenlabs",
+                        body=json.dumps(call_analysis_data),
+                        encoding="none",
+                    )
+
+                logger.debug("Added transcript and analysis to vCon")
+
+            elif conversation.transcript:
+                # Fallback to simple transcript
                 analysis_data = {
                     "type": "transcript",
                     "text": conversation.transcript.text,
@@ -160,17 +212,15 @@ class VconBuilder:
                 if conversation.transcript.confidence:
                     analysis_data["confidence"] = conversation.transcript.confidence
 
-                import json
-                # Analysis requires dialog index and vendor
                 vcon.add_analysis(
                     type="transcript",
-                    dialog=0,  # First dialog (audio)
+                    dialog=0,
                     vendor="elevenlabs",
                     body=json.dumps(analysis_data),
                     encoding="none",
                 )
 
-                logger.debug("Added analysis to vCon")
+                logger.debug("Added simple transcript to vCon")
 
         except Exception as e:
             logger.error(f"Error adding analysis: {str(e)}")

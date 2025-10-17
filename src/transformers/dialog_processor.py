@@ -40,6 +40,14 @@ class DialogProcessor:
                 )
                 if audio_dialog:
                     dialogs.append(audio_dialog)
+            else:
+                # Create a placeholder recording dialog if no audio
+                logger.debug(f"No audio for conversation {conversation.id}, creating placeholder dialog")
+                placeholder_dialog = DialogProcessor._create_placeholder_dialog(
+                    conversation, party_indices
+                )
+                if placeholder_dialog:
+                    dialogs.append(placeholder_dialog)
 
             if include_transcript and conversation.transcript:
                 transcript_dialog = DialogProcessor._create_transcript_dialog(
@@ -76,8 +84,9 @@ class DialogProcessor:
 
             if audio.url:
                 dialog_dict["url"] = audio.url
+                logger.debug(f"Audio dialog with URL: {audio.url}")
             else:
-                logger.debug("No audio URL available, creating placeholder")
+                logger.debug("No audio URL available")
 
             if audio.duration_ms:
                 dialog_dict["duration"] = audio.duration_ms / 1000
@@ -87,6 +96,9 @@ class DialogProcessor:
                 "channels": audio.channels,
                 "format": audio.format,
             }
+
+            if audio.size_bytes:
+                dialog_dict["metadata"]["size_bytes"] = audio.size_bytes
 
             dialog = Dialog(**dialog_dict)
             logger.debug(
@@ -130,6 +142,37 @@ class DialogProcessor:
 
         except Exception as e:
             logger.error(f"Error creating transcript dialog: {str(e)}")
+            return None
+
+    @staticmethod
+    def _create_placeholder_dialog(
+        conversation: Conversation, party_indices: dict
+    ) -> Optional[Dialog]:
+        """Create a placeholder Dialog entry for conversations without audio"""
+        try:
+            dialog_dict = {
+                "type": "recording",
+                "start": conversation.start_time,
+                "parties": list(party_indices.values()),
+                "mimetype": "audio/wav",
+            }
+
+            if conversation.duration_ms:
+                dialog_dict["duration"] = conversation.duration_ms / 1000
+
+            dialog_dict["metadata"] = {
+                "status": conversation.status,
+                "note": "Audio not available from API"
+            }
+
+            dialog = Dialog(**dialog_dict)
+            logger.debug(
+                f"Created placeholder dialog for conversation {conversation.id}"
+            )
+            return dialog
+
+        except Exception as e:
+            logger.error(f"Error creating placeholder dialog: {str(e)}")
             return None
 
     @staticmethod

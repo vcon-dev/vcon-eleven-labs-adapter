@@ -26,6 +26,11 @@ class FileExporter:
         self.overwrite = overwrite
 
         self.directory.mkdir(parents=True, exist_ok=True)
+
+        # Create audio subdirectory
+        self.audio_directory = self.directory / "audio"
+        self.audio_directory.mkdir(parents=True, exist_ok=True)
+
         logger.info(f"FileExporter initialized with directory: {self.directory}")
 
     def export(self, vcon: Vcon, filename: Optional[str] = None) -> Path:
@@ -51,16 +56,46 @@ class FileExporter:
                 )
                 return file_path
 
-            vcon_json = vcon.to_json()
+            vcon_dict = vcon.to_dict()
 
             with open(file_path, "w") as f:
-                json.dump(vcon_json, f, indent=2)
+                json.dump(vcon_dict, f, indent=2)
 
             logger.info(f"Successfully exported vCon to {file_path}")
             return file_path
 
         except Exception as e:
             logger.error(f"Error exporting vCon to file: {str(e)}")
+            raise
+
+    def save_audio(self, audio_bytes: bytes, conversation_id: str, format: str = "mp3") -> Path:
+        """
+        Save audio file to disk
+
+        Args:
+            audio_bytes: Audio data
+            conversation_id: Conversation ID for filename
+            format: Audio format extension
+
+        Returns:
+            Path to saved audio file
+        """
+        try:
+            filename = f"{conversation_id}.{format}"
+            audio_path = self.audio_directory / filename
+
+            if audio_path.exists() and not self.overwrite:
+                logger.debug(f"Audio file already exists: {audio_path}")
+                return audio_path
+
+            with open(audio_path, "wb") as f:
+                f.write(audio_bytes)
+
+            logger.info(f"Successfully saved audio to {audio_path}")
+            return audio_path
+
+        except Exception as e:
+            logger.error(f"Error saving audio file: {str(e)}")
             raise
 
     def export_batch(self, vcons: list, filename_pattern: str = None) -> list:

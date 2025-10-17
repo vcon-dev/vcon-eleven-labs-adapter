@@ -137,6 +137,65 @@ class ElevenLabsExtractor:
             logger.error(f"Error fetching audio: {str(e)}")
             return None
 
+    def get_conversation_transcript(self, conversation_id: str) -> Optional[dict]:
+        """
+        Fetch detailed conversation including transcript
+
+        Args:
+            conversation_id: Conversation ID
+
+        Returns:
+            Dictionary with transcript and analysis data or None if not available
+        """
+        try:
+            logger.info(f"Fetching transcript for conversation {conversation_id}")
+            full_conv = self._retry_api_call(
+                self._fetch_full_conversation,
+                conversation_id=conversation_id,
+            )
+
+            if not full_conv:
+                return None
+
+            # Parse transcript turns into a structured format
+            transcript_turns = []
+            full_text_parts = []
+
+            if hasattr(full_conv, 'transcript') and full_conv.transcript:
+                for turn in full_conv.transcript:
+                    turn_data = {
+                        "role": turn.role,
+                        "message": turn.message,
+                        "timestamp": turn.time_in_call_secs if hasattr(turn, 'time_in_call_secs') else None,
+                        "source": turn.source_medium if hasattr(turn, 'source_medium') else None
+                    }
+                    transcript_turns.append(turn_data)
+
+                    # Build full text
+                    speaker = "Agent" if turn.role == "agent" else "User"
+                    full_text_parts.append(f"{speaker}: {turn.message}")
+
+            result = {
+                "transcript_turns": transcript_turns,
+                "full_text": "\n\n".join(full_text_parts),
+                "analysis": None
+            }
+
+            # Add analysis if available
+            if hasattr(full_conv, 'analysis') and full_conv.analysis:
+                result["analysis"] = {
+                    "summary": full_conv.analysis.transcript_summary if hasattr(full_conv.analysis, 'transcript_summary') else None,
+                    "title": full_conv.analysis.call_summary_title if hasattr(full_conv.analysis, 'call_summary_title') else None,
+                    "call_successful": full_conv.analysis.call_successful if hasattr(full_conv.analysis, 'call_successful') else None
+                }
+
+            logger.info(f"Retrieved transcript with {len(transcript_turns)} turns for conversation {conversation_id}")
+            return result
+
+        except Exception as e:
+            logger.error(f"Error fetching transcript: {str(e)}")
+            return None
+
     def _fetch_agents(self) -> List[dict]:
         """Fetch agents from API (internal)"""
         agents = []
@@ -209,16 +268,49 @@ class ElevenLabsExtractor:
             result = []
             for conv in conversations:
                 if isinstance(conv, dict):
+                    # Ensure dict conversations have participants
+                    if not conv.get("participants"):
+                        agent_id = conv.get("agent_id", "")
+                        conv_id = conv.get("id", "")
+                        conv["participants"] = [
+                            {
+                                "id": f"{agent_id}_agent",
+                                "name": "AI Agent",
+                                "role": "agent"
+                            },
+                            {
+                                "id": f"{conv_id}_customer",
+                                "name": "Customer",
+                                "role": "customer"
+                            }
+                        ]
                     result.append(conv)
                 else:
                     # Convert object to dict
+                    agent_id = getattr(conv, 'agent_id', '')
+                    conv_id = getattr(conv, 'conversation_id', '')
+
+                    # Create default participants (agent and customer)
+                    participants = [
+                        {
+                            "id": f"{agent_id}_agent",
+                            "name": "AI Agent",
+                            "role": "agent"
+                        },
+                        {
+                            "id": f"{conv_id}_customer",
+                            "name": "Customer",
+                            "role": "customer"
+                        }
+                    ]
+
                     conv_dict = {
-                        "id": getattr(conv, 'conversation_id', ''),
-                        "agent_id": getattr(conv, 'agent_id', ''),
+                        "id": conv_id,
+                        "agent_id": agent_id,
                         "start_time": self._unix_to_iso(getattr(conv, 'start_time_unix_secs', None)),
                         "duration_ms": getattr(conv, 'call_duration_secs', None),
                         "status": getattr(conv, 'status', 'done'),
-                        "participants": []  # Will be populated from transcript if available
+                        "participants": participants
                     }
                     result.append(conv_dict)
             
@@ -230,11 +322,36 @@ class ElevenLabsExtractor:
 
         return conversations
 
+    def _fetch_full_conversation(self, conversation_id: str):
+        """Fetch full conversation details from API (internal)"""
+        try:
+            full_conv = self.client.conversational_ai.conversations.get(
+                conversation_id=conversation_id
+            )
+            return full_conv
+        except Exception as e:
+            logger.warning(f"Could not fetch full conversation: {str(e)}")
+            return None
+
     def _fetch_audio(self, conversation_id: str) -> Optional[bytes]:
         """Fetch audio from API (internal)"""
         try:
-            audio_data = self.client.conversations.get_audio(conversation_id)
-            return audio_data
+            audio_data = self.client.conversational_ai.conversations.audio.get(
+                conversation_id=conversation_id
+            )
+
+            # Convert iterator to bytes if needed
+            if hasattr(audio_data, 'read'):
+                # File-like object
+                return audio_data.read()
+            elif isinstance(audio_data, bytes):
+                return audio_data
+            elif hasattr(audio_data, '__iter__'):
+                # Iterator of bytes
+                return b''.join(audio_data)
+            else:
+                logger.warning(f"Unexpected audio data type: {type(audio_data)}")
+                return None
         except Exception as e:
             logger.warning(f"Could not fetch audio: {str(e)}")
             return None
@@ -291,6 +408,30 @@ class ElevenLabsExtractor:
                 )
             )
 
+        # Parse audio if present
+        from src.models.elevenlabs_models import AudioRecording, Transcript
+        audio = None
+        if conv_data.get("audio"):
+            audio_data = conv_data.get("audio")
+            audio = AudioRecording(
+                url=audio_data.get("url"),
+                duration_ms=audio_data.get("duration_ms", conv_data.get("duration_ms", 0)),
+                sample_rate=audio_data.get("sample_rate", 16000),
+                channels=audio_data.get("channels", 1),
+                format=audio_data.get("format", "wav"),
+                size_bytes=audio_data.get("size_bytes")
+            )
+
+        # Parse transcript if present
+        transcript = None
+        if conv_data.get("transcript"):
+            transcript_data = conv_data.get("transcript")
+            transcript = Transcript(
+                text=transcript_data.get("text", ""),
+                language=transcript_data.get("language", "en"),
+                confidence=transcript_data.get("confidence")
+            )
+
         return Conversation(
             id=conv_data.get("id", ""),
             agent_id=conv_data.get("agent_id", ""),
@@ -299,6 +440,8 @@ class ElevenLabsExtractor:
             duration_ms=conv_data.get("duration_ms"),
             status=conv_data.get("status", "completed"),
             participants=participants,
+            audio=audio,
+            transcript=transcript,
             metadata=conv_data.get("metadata", {}),
             tags=conv_data.get("tags", []),
         )
