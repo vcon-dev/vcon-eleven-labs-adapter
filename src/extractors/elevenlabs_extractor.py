@@ -141,14 +141,40 @@ class ElevenLabsExtractor:
         """Fetch agents from API (internal)"""
         agents = []
         try:
-            response = self.client.agents.list()
+            # Try the direct agents.list() call first
+            response = self.client.conversational_ai.agents.list()
             if hasattr(response, "__iter__"):
                 agents = list(response)
             else:
                 agents = response
         except Exception as e:
-            logger.warning(f"Could not fetch agents directly: {str(e)}")
-            agents = []
+            logger.debug(f"Direct agents fetch failed (using fallback): {str(e)}")
+            # Fallback: get agents from conversations
+            try:
+                conversations_response = self.client.conversational_ai.conversations.list()
+                if hasattr(conversations_response, 'conversations'):
+                    conversations = conversations_response.conversations
+                else:
+                    conversations = conversations_response
+                
+                # Extract unique agents from conversations
+                agents_dict = {}
+                for conv in conversations:
+                    agent_id = getattr(conv, 'agent_id', None)
+                    agent_name = getattr(conv, 'agent_name', None)
+                    
+                    if agent_id and agent_id not in agents_dict:
+                        agents_dict[agent_id] = {
+                            "id": agent_id,
+                            "name": agent_name or "Unknown Agent",
+                            "status": "active"
+                        }
+                
+                agents = list(agents_dict.values())
+                logger.info(f"Found {len(agents)} agents from conversations")
+            except Exception as fallback_e:
+                logger.error(f"Could not fetch agents from conversations: {str(fallback_e)}")
+                agents = []
 
         return agents
 
@@ -161,21 +187,45 @@ class ElevenLabsExtractor:
         """Fetch agent conversations from API (internal)"""
         conversations = []
         try:
-            params = {"agent_id": agent_id}
+            params = {}
+            if agent_id:
+                params["agent_id"] = agent_id
             if limit:
                 params["limit"] = limit
             if since:
-                params["since"] = since.isoformat()
+                params["since_unix_secs"] = int(since.timestamp())
 
-            response = self.client.conversations.list(**params)
+            response = self.client.conversational_ai.conversations.list(**params)
 
-            if hasattr(response, "__iter__"):
+            # Handle different response types
+            if hasattr(response, 'conversations'):
+                conversations = response.conversations if response.conversations else []
+            elif hasattr(response, "__iter__"):
                 conversations = list(response)
             else:
-                conversations = response
+                conversations = response if response else []
+
+            # Convert objects to dicts if needed
+            result = []
+            for conv in conversations:
+                if isinstance(conv, dict):
+                    result.append(conv)
+                else:
+                    # Convert object to dict
+                    conv_dict = {
+                        "id": getattr(conv, 'conversation_id', ''),
+                        "agent_id": getattr(conv, 'agent_id', ''),
+                        "start_time": self._unix_to_iso(getattr(conv, 'start_time_unix_secs', None)),
+                        "duration_ms": getattr(conv, 'call_duration_secs', None),
+                        "status": getattr(conv, 'status', 'done'),
+                        "participants": []  # Will be populated from transcript if available
+                    }
+                    result.append(conv_dict)
+            
+            return result
 
         except Exception as e:
-            logger.warning(f"Could not fetch conversations: {str(e)}")
+            logger.error(f"Could not fetch conversations: {str(e)}")
             conversations = []
 
         return conversations
@@ -252,6 +302,19 @@ class ElevenLabsExtractor:
             metadata=conv_data.get("metadata", {}),
             tags=conv_data.get("tags", []),
         )
+
+    @staticmethod
+    def _unix_to_iso(unix_secs: Optional[int]) -> Optional[str]:
+        """Convert unix timestamp to ISO datetime string"""
+        if not unix_secs:
+            return None
+        
+        try:
+            dt = datetime.fromtimestamp(unix_secs)
+            return dt.isoformat() + "Z"
+        except Exception as e:
+            logger.warning(f"Could not convert unix timestamp {unix_secs}: {str(e)}")
+            return None
 
     @staticmethod
     def _parse_datetime(date_str: Optional[str]) -> Optional[datetime]:

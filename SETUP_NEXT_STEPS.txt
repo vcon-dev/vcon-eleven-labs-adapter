@@ -1,0 +1,175 @@
+================================================================================
+  SETUP COMPLETE - NEXT STEPS FOR LIVE TESTING
+================================================================================
+
+You now have complete documentation and tools to test the ElevenLabs vCon 
+Adapter with your real account. Here's what to do next:
+
+================================================================================
+  STEP 1: READ THE QUICK START (5 minutes)
+================================================================================
+
+cat QUICKSTART_LIVE_TEST.md
+
+This gives you a fast overview and gets you started in 5 minutes.
+
+
+================================================================================
+  STEP 2: GET YOUR ELEVENLABS API KEY (1 minute)
+================================================================================
+
+Go to: https://elevenlabs.io/app/settings/api-keys
+
+Create a new API key or copy your existing one and keep it safe.
+
+
+================================================================================
+  STEP 3: RUN ONE-TIME SETUP (2 minutes)
+================================================================================
+
+bash setup_live_test.sh
+
+This will:
+  - Activate the virtual environment
+  - Install/verify dependencies
+  - Create config.yml
+  - Create vcons output directory
+
+
+================================================================================
+  STEP 4: START INTERACTIVE TESTING (2 minutes)
+================================================================================
+
+source venv/bin/activate
+python3 test_live.py
+
+This interactive tool will guide you through:
+  1. Entering your API key
+  2. Testing the connection
+  3. Listing your agents
+  4. Checking for conversations
+  5. Processing them into vCons
+  6. Verifying the results
+
+
+================================================================================
+  AVAILABLE RESOURCES
+================================================================================
+
+Quick Start (5 min):
+  cat QUICKSTART_LIVE_TEST.md
+
+Complete Guide (30 min):
+  cat LIVE_TESTING_GUIDE.md
+
+Common Scenarios & Debugging (20 min):
+  cat TESTING_SCENARIOS.md
+
+All Resources Summary:
+  cat TESTING_RESOURCES.md
+
+
+================================================================================
+  INTERACTIVE TOOLS
+================================================================================
+
+Main Testing Tool (recommended):
+  python3 test_live.py
+
+Example Script:
+  python3 examples/basic_usage.py
+
+
+================================================================================
+  QUICK COMMAND REFERENCE
+================================================================================
+
+# One-time setup
+bash setup_live_test.sh
+
+# Activate environment
+source venv/bin/activate
+
+# Run interactive tests
+python3 test_live.py
+
+# Run example
+python3 examples/basic_usage.py
+
+# Check results
+ls -lh vcons/
+
+# View logs
+tail -f adapter.log
+
+# Deactivate when done
+deactivate
+
+
+================================================================================
+  WHAT TO EXPECT
+================================================================================
+
+First Run (without conversations):
+  - API connection test should succeed
+  - You'll see your agents listed
+  - No conversations yet (normal, place a test call first)
+
+After Placing Test Calls:
+  - Call your agent's phone number
+  - Have a conversation (30+ seconds)
+  - Wait 1-2 minutes for processing
+  - Run test again
+  - Adapter will create vCon files
+
+Success Indicators:
+  - Files appear in vcons/ directory
+  - File size > 1 KB
+  - Contains conversation data with parties and dialog
+  - adapter.log shows successful processing
+
+
+================================================================================
+  TROUBLESHOOTING
+================================================================================
+
+Need help? Check these in order:
+
+1. Quick questions → cat TESTING_SCENARIOS.md
+2. Detailed help → cat LIVE_TESTING_GUIDE.md
+3. Still stuck → check adapter.log for errors
+4. Enable DEBUG logging and try again
+5. See ElevenLabs docs: https://elevenlabs.io/docs
+
+
+================================================================================
+  SUMMARY
+================================================================================
+
+You have everything needed to test the adapter:
+
+✓ Interactive testing tool (test_live.py)
+✓ Automated setup script (setup_live_test.sh)
+✓ Quick start guide (5 minutes)
+✓ Complete reference (30 minutes)
+✓ Debugging scenarios (20 minutes)
+✓ Virtual environment already set up
+✓ Dependencies ready
+
+Next action: Run bash setup_live_test.sh
+
+
+================================================================================
+  Questions? 
+================================================================================
+
+All answers are in the documentation files. Start with:
+
+cat QUICKSTART_LIVE_TEST.md
+
+Then follow the interactive prompts in:
+
+python3 test_live.py
+
+Good luck!
+================================================================================

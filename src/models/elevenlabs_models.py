@@ -13,6 +13,7 @@ class ConversationStatus(str, Enum):
 
     ACTIVE = "active"
     COMPLETED = "completed"
+    DONE = "done"
     FAILED = "failed"
     INTERRUPTED = "interrupted"
 
@@ -56,7 +57,7 @@ class Conversation(BaseModel):
     start_time: datetime
     end_time: Optional[datetime] = None
     duration_ms: Optional[int] = None
-    status: ConversationStatus = ConversationStatus.COMPLETED
+    status: str = "completed"  # Changed to string for flexibility with API values
     participants: List[ConversationParticipant]
     audio: Optional[AudioRecording] = None
     transcript: Optional[Transcript] = None
@@ -72,7 +73,7 @@ class Agent(BaseModel):
     id: str
     name: str
     status: str = "active"
-    created_at: datetime
+    created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
     description: Optional[str] = None
     avatar_url: Optional[str] = None

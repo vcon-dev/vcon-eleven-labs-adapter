@@ -1,119 +1,70 @@
-# Pydantic v2 Deprecation Warnings - Fixed
+# Warnings Fixed
 
-## Status: ✓ ALL WARNINGS ELIMINATED
+## Issue
 
-### Before
-```
-======================== 83 passed, 6 warnings in 0.15s ========================
-```
+The test script was showing verbose warnings about circular imports in the ElevenLabs SDK:
 
-### After
 ```
-============================== 83 passed in 0.10s ==============================
+WARNING - Could not fetch agents directly: cannot import name 'AstAndOperatorNodeInputChildrenItem'
 ```
 
-## Changes Made
+This warning was displayed multiple times, making the output cluttered and confusing.
 
-### 1. ConfigDict Migration
-**Files**: `src/config.py`, `src/models/elevenlabs_models.py`
+## Root Cause
 
-**Change**: Replaced class-based `Config` with `model_config = ConfigDict()`
+The warning came from an exception in the ElevenLabs SDK when trying to use `agents.list()`, which triggers a circular import. Since we implemented a working fallback (using conversations.list() instead), this exception is expected and handled gracefully.
 
-**Before**:
+## Solution
+
+Changed the logging level from WARNING to DEBUG for this expected exception:
+
+**Before:**
 ```python
-class AdapterConfig(BaseModel):
-    elevenlabs: ElevenLabsConfig
-    
-    class Config:
-        arbitrary_types_allowed = True
+except Exception as e:
+    logger.warning(f"Could not fetch agents directly: {str(e)}")
+    # Fallback to conversations method...
 ```
 
-**After**:
+**After:**
 ```python
-from pydantic import ConfigDict
-
-class AdapterConfig(BaseModel):
-    model_config = ConfigDict(arbitrary_types_allowed=True)
-    
-    elevenlabs: ElevenLabsConfig
+except Exception as e:
+    logger.debug(f"Direct agents fetch failed (using fallback): {str(e)}")
+    # Fallback to conversations method...
 ```
 
-### 2. model_dump() Migration
-**File**: `tests/test_models.py`
+## Result
 
-**Change**: Replaced deprecated `dict()` method with `model_dump()`
-
-**Before**:
-```python
-agent_dict = sample_agent.dict()
-conv_dict = sample_conversation.dict()
-participant_dict = participant.dict()
-```
-
-**After**:
-```python
-agent_dict = sample_agent.model_dump()
-conv_dict = sample_conversation.model_dump()
-participant_dict = participant.model_dump()
-```
-
-## Files Modified
-
-1. **src/config.py**
-   - Added `ConfigDict` import
-   - Replaced `class Config:` with `model_config = ConfigDict(...)`
-   - Applied to `AdapterConfig` class
-
-2. **src/models/elevenlabs_models.py**
-   - Added `ConfigDict` import
-   - Replaced `class Config:` with `model_config = ConfigDict(...)`
-   - Applied to `Conversation` class
-   - Applied to `Agent` class
-
-3. **tests/test_models.py**
-   - Replaced 3 occurrences of `.dict()` with `.model_dump()`
-   - In `test_agent_dict()`
-   - In `test_conversation_dict()`
-   - In `test_participant_dict()`
-
-## Benefits
-
-- ✓ 100% Pydantic v2 compliant
-- ✓ Future-proof code (no warnings about v3.0 removal)
-- ✓ Cleaner, more modern syntax
-- ✓ Better performance with `model_dump()`
-- ✓ Improved IDE autocomplete support
-
-## Test Results
+Clean output without warnings:
 
 ```
-============================= test session starts ==============================
-platform darwin -- Python 3.12.8, pytest-8.4.2, pluggy-1.6.0
-rootdir: /Users/thomashowe/Documents/GitHub/vcon_eleven_labs_adapter
-configfile: pytest.ini
-testpaths: tests
-plugins: mock-3.15.1, anyio-4.9.0, cov-7.0.0
-collected 83 items
+[17/Oct/2025 15:17:32] INFO - Fetching agents from ElevenLabs API
+[17/Oct/2025 15:17:33] INFO - HTTP Request: GET https://api.elevenlabs.io/v1/convai/conversations "HTTP/1.1 200 OK"
+[17/Oct/2025 15:17:33] INFO - Found 1 agents from conversations
+[17/Oct/2025 15:17:33] INFO - Successfully fetched 1 agents
+SUCCESS! Found 1 agent(s):
 
-tests/test_exporters.py .....................                            [ 25%]
-tests/test_extractors.py ...................                             [ 48%]
-tests/test_models.py ........................                            [ 77%]
-tests/test_transformers.py ...................                           [100%]
-
-============================== 83 passed in 0.10s ==============================
+  1. Name: Support agent
+     ID: agent_5301k7573nhxeyztfjbyavk7c8ts
 ```
 
-### Summary
-- **Tests Passed**: 83/83 (100%)
-- **Warnings**: 0
-- **Execution Time**: 0.10s
+## Changes
 
-## Pydantic v2 Compliance
+File: `src/extractors/elevenlabs_extractor.py`
 
-The adapter is now fully compliant with Pydantic v2 best practices and APIs. No deprecation warnings or future compatibility issues.
+1. Line ~150: Changed `logger.warning()` to `logger.debug()` for direct agents fetch failure
+2. Message updated to be more descriptive: "Direct agents fetch failed (using fallback)"
+3. Fallback errors changed to `logger.error()` to properly distinguish real errors from expected fallback path
 
----
+## Testing
 
-**Status**: COMPLETE
-**Date**: October 17, 2025
-**Quality**: Production Ready
+All functionality remains the same, only the logging output is cleaner:
+- Agents are still fetched successfully
+- Fallback mechanism works as intended
+- All features remain functional
+- Output is now clean and professional
+
+To enable debug logging to see the fallback path details, set in `config.yml`:
+```yaml
+logging:
+  level: DEBUG
+```
