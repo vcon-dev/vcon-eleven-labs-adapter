@@ -373,3 +373,51 @@ For more information, see:
 - [User Guide](user-guide.md)
 - [API Reference](api-reference.md)
 - [Configuration](../01-getting-started/configuration.md)
+
+## AI Integration Examples
+
+### Export to OpenAI
+
+```python
+from src.exporters.openai_exporter import OpenAIExporter
+
+# Initialize exporter
+exporter = OpenAIExporter(api_key="sk-...")
+
+# Export single vCon
+result = exporter.export(vcon)
+print(f"File ID: {result['file_id']}")
+
+# Export batch
+results = exporter.export_batch(vcons)
+
+# List files
+files = exporter.list_files(purpose="assistants")
+
+# Delete file
+exporter.delete_file(file_id)
+```
+
+### Export to Anthropic
+
+```python
+from src.exporters.anthropic_exporter import AnthropicExporter
+
+# Initialize exporter
+exporter = AnthropicExporter(api_key="sk-ant-...")
+
+# Export single vCon
+result = exporter.export(vcon)
+print(f"File ID: {result['file_id']}")
+
+# Export batch
+results = exporter.export_batch(vcons)
+
+# Create RAG context
+context = exporter.create_retrieval_context(
+    file_ids=[result['file_id']],
+    query="Analyze this conversation"
+)
+```
+
+For more AI integration examples, see [AI Integrations](ai-integrations.md).
