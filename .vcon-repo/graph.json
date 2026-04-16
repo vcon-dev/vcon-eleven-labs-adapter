@@ -1,0 +1,365 @@
+{
+  "schema_version": "1.0.0",
+  "repo": "vcon-eleven-labs-adapter",
+  "repo_version": null,
+  "archetype": "python-library",
+  "generated_at": "2026-04-16T15:15:45.735142+00:00",
+  "stats": {
+    "node_count": 41,
+    "edge_count": 15
+  },
+  "nodes": [
+    {
+      "id": "dependency:vcon",
+      "type": "dependency",
+      "name": "vcon",
+      "file": "requirements.txt"
+    },
+    {
+      "id": "dependency:elevenlabs",
+      "type": "dependency",
+      "name": "elevenlabs",
+      "file": "requirements.txt"
+    },
+    {
+      "id": "dependency:boto3",
+      "type": "dependency",
+      "name": "boto3",
+      "file": "requirements.txt"
+    },
+    {
+      "id": "dependency:requests",
+      "type": "dependency",
+      "name": "requests",
+      "file": "requirements.txt"
+    },
+    {
+      "id": "dependency:pydantic",
+      "type": "dependency",
+      "name": "pydantic",
+      "file": "requirements.txt"
+    },
+    {
+      "id": "dependency:python-dotenv",
+      "type": "dependency",
+      "name": "python-dotenv",
+      "file": "requirements.txt"
+    },
+    {
+      "id": "dependency:pyyaml",
+      "type": "dependency",
+      "name": "pyyaml",
+      "file": "requirements.txt"
+    },
+    {
+      "id": "dependency:pytest",
+      "type": "dependency",
+      "name": "pytest",
+      "file": "requirements.txt"
+    },
+    {
+      "id": "dependency:pytest-cov",
+      "type": "dependency",
+      "name": "pytest-cov",
+      "file": "requirements.txt"
+    },
+    {
+      "id": "dependency:pytest-mock",
+      "type": "dependency",
+      "name": "pytest-mock",
+      "file": "requirements.txt"
+    },
+    {
+      "id": "dependency:python-dateutil",
+      "type": "dependency",
+      "name": "python-dateutil",
+      "file": "requirements.txt"
+    },
+    {
+      "id": "class:ElevenLabsVconAdapter",
+      "type": "class",
+      "name": "ElevenLabsVconAdapter",
+      "file": "src/adapter.py",
+      "line": 18
+    },
+    {
+      "id": "class:ElevenLabsConfig",
+      "type": "class",
+      "name": "ElevenLabsConfig",
+      "file": "src/config.py",
+      "line": 12
+    },
+    {
+      "id": "class:FileExporterConfig",
+      "type": "class",
+      "name": "FileExporterConfig",
+      "file": "src/config.py",
+      "line": 34
+    },
+    {
+      "id": "class:S3ExporterConfig",
+      "type": "class",
+      "name": "S3ExporterConfig",
+      "file": "src/config.py",
+      "line": 42
+    },
+    {
+      "id": "class:WebhookExporterConfig",
+      "type": "class",
+      "name": "WebhookExporterConfig",
+      "file": "src/config.py",
+      "line": 52
+    },
+    {
+      "id": "class:ExportersConfig",
+      "type": "class",
+      "name": "ExportersConfig",
+      "file": "src/config.py",
+      "line": 63
+    },
+    {
+      "id": "class:LoggingConfig",
+      "type": "class",
+      "name": "LoggingConfig",
+      "file": "src/config.py",
+      "line": 71
+    },
+    {
+      "id": "class:VconConfig",
+      "type": "class",
+      "name": "VconConfig",
+      "file": "src/config.py",
+      "line": 80
+    },
+    {
+      "id": "class:AdapterConfig",
+      "type": "class",
+      "name": "AdapterConfig",
+      "file": "src/config.py",
+      "line": 89
+    },
+    {
+      "id": "function:load_yaml_config",
+      "type": "function",
+      "name": "load_yaml_config",
+      "file": "src/config.py",
+      "line": 100
+    },
+    {
+      "id": "function:load_config",
+      "type": "function",
+      "name": "load_config",
+      "file": "src/config.py",
+      "line": 144
+    },
+    {
+      "id": "function:get_config_value",
+      "type": "function",
+      "name": "get_config_value",
+      "file": "src/config.py",
+      "line": 159
+    },
+    {
+      "id": "class:FileExporter",
+      "type": "class",
+      "name": "FileExporter",
+      "file": "src/exporters/file_exporter.py",
+      "line": 14
+    },
+    {
+      "id": "class:S3Exporter",
+      "type": "class",
+      "name": "S3Exporter",
+      "file": "src/exporters/s3_exporter.py",
+      "line": 18
+    },
+    {
+      "id": "class:WebhookExporter",
+      "type": "class",
+      "name": "WebhookExporter",
+      "file": "src/exporters/webhook_exporter.py",
+      "line": 15
+    },
+    {
+      "id": "class:ElevenLabsExtractor",
+      "type": "class",
+      "name": "ElevenLabsExtractor",
+      "file": "src/extractors/elevenlabs_extractor.py",
+      "line": 19
+    },
+    {
+      "id": "class:JSONFormatter",
+      "type": "class",
+      "name": "JSONFormatter",
+      "file": "src/logger.py",
+      "line": 13
+    },
+    {
+      "id": "function:setup_logger",
+      "type": "function",
+      "name": "setup_logger",
+      "file": "src/logger.py",
+      "line": 33
+    },
+    {
+      "id": "function:get_logger",
+      "type": "function",
+      "name": "get_logger",
+      "file": "src/logger.py",
+      "line": 81
+    },
+    {
+      "id": "class:ConversationStatus",
+      "type": "class",
+      "name": "ConversationStatus",
+      "file": "src/models/elevenlabs_models.py",
+      "line": 11
+    },
+    {
+      "id": "class:ConversationParticipant",
+      "type": "class",
+      "name": "ConversationParticipant",
+      "file": "src/models/elevenlabs_models.py",
+      "line": 21
+    },
+    {
+      "id": "class:AudioRecording",
+      "type": "class",
+      "name": "AudioRecording",
+      "file": "src/models/elevenlabs_models.py",
+      "line": 31
+    },
+    {
+      "id": "class:Transcript",
+      "type": "class",
+      "name": "Transcript",
+      "file": "src/models/elevenlabs_models.py",
+      "line": 42
+    },
+    {
+      "id": "class:Conversation",
+      "type": "class",
+      "name": "Conversation",
+      "file": "src/models/elevenlabs_models.py",
+      "line": 50
+    },
+    {
+      "id": "class:Agent",
+      "type": "class",
+      "name": "Agent",
+      "file": "src/models/elevenlabs_models.py",
+      "line": 68
+    },
+    {
+      "id": "class:DialogProcessor",
+      "type": "class",
+      "name": "DialogProcessor",
+      "file": "src/transformers/dialog_processor.py",
+      "line": 14
+    },
+    {
+      "id": "class:PartyMapper",
+      "type": "class",
+      "name": "PartyMapper",
+      "file": "src/transformers/party_mapper.py",
+      "line": 13
+    },
+    {
+      "id": "class:VconBuilder",
+      "type": "class",
+      "name": "VconBuilder",
+      "file": "src/transformers/vcon_builder.py",
+      "line": 15
+    },
+    {
+      "id": "config:ELEVENLABS_API_KEY",
+      "type": "config",
+      "name": "ELEVENLABS_API_KEY",
+      "file": "test_live.py"
+    },
+    {
+      "id": "document:readme-md",
+      "type": "document",
+      "name": "README.md",
+      "file": "README.md"
+    }
+  ],
+  "edges": [
+    {
+      "from": "class:ElevenLabsConfig",
+      "to": "class:BaseModel",
+      "type": "inherits"
+    },
+    {
+      "from": "class:FileExporterConfig",
+      "to": "class:BaseModel",
+      "type": "inherits"
+    },
+    {
+      "from": "class:S3ExporterConfig",
+      "to": "class:BaseModel",
+      "type": "inherits"
+    },
+    {
+      "from": "class:WebhookExporterConfig",
+      "to": "class:BaseModel",
+      "type": "inherits"
+    },
+    {
+      "from": "class:ExportersConfig",
+      "to": "class:BaseModel",
+      "type": "inherits"
+    },
+    {
+      "from": "class:LoggingConfig",
+      "to": "class:BaseModel",
+      "type": "inherits"
+    },
+    {
+      "from": "class:VconConfig",
+      "to": "class:BaseModel",
+      "type": "inherits"
+    },
+    {
+      "from": "class:AdapterConfig",
+      "to": "class:BaseModel",
+      "type": "inherits"
+    },
+    {
+      "from": "class:ConversationStatus",
+      "to": "class:str",
+      "type": "inherits"
+    },
+    {
+      "from": "class:ConversationStatus",
+      "to": "class:Enum",
+      "type": "inherits"
+    },
+    {
+      "from": "class:ConversationParticipant",
+      "to": "class:BaseModel",
+      "type": "inherits"
+    },
+    {
+      "from": "class:AudioRecording",
+      "to": "class:BaseModel",
+      "type": "inherits"
+    },
+    {
+      "from": "class:Transcript",
+      "to": "class:BaseModel",
+      "type": "inherits"
+    },
+    {
+      "from": "class:Conversation",
+      "to": "class:BaseModel",
+      "type": "inherits"
+    },
+    {
+      "from": "class:Agent",
+      "to": "class:BaseModel",
+      "type": "inherits"
+    }
+  ],
+  "subsystems": []
+}
