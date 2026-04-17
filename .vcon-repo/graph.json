@@ -3,9 +3,9 @@
   "repo": "vcon-eleven-labs-adapter",
   "repo_version": null,
   "archetype": "python-library",
-  "generated_at": "2026-04-16T15:15:45.735142+00:00",
+  "generated_at": "2026-04-17T12:29:50.884877+00:00",
   "stats": {
-    "node_count": 41,
+    "node_count": 46,
     "edge_count": 15
   },
   "nodes": [
@@ -160,11 +160,25 @@
       "line": 159
     },
     {
+      "id": "class:AnthropicExporter",
+      "type": "class",
+      "name": "AnthropicExporter",
+      "file": "src/exporters/anthropic_exporter.py",
+      "line": 21
+    },
+    {
       "id": "class:FileExporter",
       "type": "class",
       "name": "FileExporter",
       "file": "src/exporters/file_exporter.py",
       "line": 14
+    },
+    {
+      "id": "class:OpenAIExporter",
+      "type": "class",
+      "name": "OpenAIExporter",
+      "file": "src/exporters/openai_exporter.py",
+      "line": 21
     },
     {
       "id": "class:S3Exporter",
@@ -272,10 +286,28 @@
       "line": 15
     },
     {
+      "id": "config:ANTHROPIC_API_KEY",
+      "type": "config",
+      "name": "ANTHROPIC_API_KEY",
+      "file": "examples/ai_integrations.py"
+    },
+    {
       "id": "config:ELEVENLABS_API_KEY",
       "type": "config",
       "name": "ELEVENLABS_API_KEY",
       "file": "test_live.py"
+    },
+    {
+      "id": "config:OPENAI_API_KEY",
+      "type": "config",
+      "name": "OPENAI_API_KEY",
+      "file": "examples/ai_integrations.py"
+    },
+    {
+      "id": "config:OPENAI_ORG_ID",
+      "type": "config",
+      "name": "OPENAI_ORG_ID",
+      "file": "src/exporters/openai_exporter.py"
     },
     {
       "id": "document:readme-md",
