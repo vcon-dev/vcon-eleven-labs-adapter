@@ -24,7 +24,7 @@ setup(
     ],
     python_requires=">=3.8",
     install_requires=[
-        "vcon>=0.5.0",
+        "vcon>=0.5.0,<1",
         "elevenlabs>=0.3.0",
         "boto3>=1.28.0",
         "requests>=2.31.0",
