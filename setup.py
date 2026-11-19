@@ -5,7 +5,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setup(
     name="vcon-elevenlabs-adapter",
-    version="0.1.0",
+    version="1.0.0",
     author="Thomas Howe",
     description="Convert ElevenLabs agent interactions to vCon format and export to multiple backends",
     long_description=long_description,
@@ -15,16 +15,13 @@ setup(
     package_dir={"": "src"},
     classifiers=[
         "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.8",
-        "Programming Language :: Python :: 3.9",
-        "Programming Language :: Python :: 3.10",
-        "Programming Language :: Python :: 3.11",
+        "Programming Language :: Python :: 3.12",
         "License :: OSI Approved :: MIT License",
         "Operating System :: OS Independent",
     ],
-    python_requires=">=3.8",
+    python_requires=">=3.12",
     install_requires=[
-        "vcon>=0.5.0,<1",
+        "vcon>=1.0.3,<2",
         "elevenlabs>=0.3.0",
         "boto3>=1.28.0",
         "requests>=2.31.0",

@@ -4,7 +4,7 @@
 
 Before installing the vCon ElevenLabs Adapter, ensure you have:
 
-- **Python 3.8 or higher** - Check with `python --version`
+- **Python 3.12 or higher** (required by vcon 1.x) - Check with `python --version`
 - **pip** - Python package manager (usually comes with Python)
 - **ElevenLabs API key** - Get it from https://elevenlabs.io/app/settings/api-keys
 - **Git** (optional) - For cloning the repository

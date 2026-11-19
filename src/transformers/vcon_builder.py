@@ -1,15 +1,26 @@
 """
-Builds complete vCon objects from conversation data
+Builds complete vCon objects from conversation data (vCon core-05, syntax 0.5.0)
+
+Each ElevenLabs conversation is one Session (index 0): its `parties` are the
+participants (receivers), in the order the API lists them. Dialogs (the
+recording and the transcript text) are listed by that Session and carry their
+contributors. Attachments are scoped with `party` plus `session`; analysis
+points at the Dialog it was derived from. `encoding: "json"` bodies are JSON
+values, not strings.
 """
 
 from datetime import datetime, timezone
+from typing import Optional
 from vcon import Vcon
+from vcon.session import Session
 from src.models.elevenlabs_models import Conversation
 from src.transformers.party_mapper import PartyMapper
 from src.transformers.dialog_processor import DialogProcessor
 from src.logger import get_logger
 
 logger = get_logger(__name__)
+
+VCON_SYNTAX = "0.5.0"
 
 
 class VconBuilder:
@@ -46,14 +57,14 @@ class VconBuilder:
             vcon = Vcon.build_new(created_at=datetime.now(timezone.utc))
 
             self._add_parties(vcon, conversation)
-            self._add_dialogs(vcon, conversation)
-            self._add_metadata(vcon, conversation)
+            session = self._add_session(vcon, conversation)
+            dialog_indices = self._add_dialogs(vcon, conversation, session)
 
             if self.include_attachments:
-                self._add_attachments(vcon, conversation)
+                self._add_attachments(vcon, conversation, session)
 
             if self.include_analysis:
-                self._add_analysis(vcon, conversation)
+                self._add_analysis(vcon, conversation, dialog_indices, session)
 
             self._add_tags(vcon, conversation)
 
@@ -84,55 +95,71 @@ class VconBuilder:
             logger.error(f"Error adding parties: {str(e)}")
             raise
 
-    def _add_dialogs(self, vcon: Vcon, conversation: Conversation):
-        """Add dialogs to vCon"""
-        try:
-            # vcon.parties is a list of Party objects or dicts
-            party_indices = {}
-            for i, party in enumerate(vcon.parties):
-                if isinstance(party, dict):
-                    # Get uuid from dict representation
-                    party_uuid = party.get('uuid') or party.get('id')
-                    if party_uuid:
-                        party_indices[party_uuid] = i
-                else:
-                    # Party object
-                    if hasattr(party, 'uuid') and party.uuid:
-                        party_indices[party.uuid] = i
+    def _add_session(self, vcon: Vcon, conversation: Conversation) -> int:
+        """Add the conversation's Session; its parties are the receivers."""
+        duration = None
+        if conversation.duration_ms is not None:
+            duration = conversation.duration_ms / 1000
+        elif conversation.end_time:
+            duration = (conversation.end_time - conversation.start_time).total_seconds()
 
+        return vcon.add_session(
+            Session(
+                start=conversation.start_time.isoformat(),
+                duration=duration,
+                parties=list(range(len(vcon.parties))) or None,
+            )
+        )
+
+    def _party_indices(self, vcon: Vcon) -> dict:
+        """Map each party's uuid (the ElevenLabs participant id) to its index."""
+        party_indices = {}
+        for i, party in enumerate(vcon.parties):
+            if isinstance(party, dict):
+                party_uuid = party.get('uuid') or party.get('id')
+            else:
+                party_uuid = getattr(party, 'uuid', None)
+            if party_uuid:
+                party_indices[party_uuid] = i
+        return party_indices
+
+    def _add_dialogs(self, vcon: Vcon, conversation: Conversation, session: int) -> dict:
+        """Add dialogs to vCon and the Session; return their indices by type."""
+        try:
             dialogs = DialogProcessor.process_conversation_dialogs(
                 conversation,
-                party_indices,
+                self._party_indices(vcon),
                 include_transcript=True,
             )
 
+            indices = {}
             for dialog in dialogs:
-                vcon.add_dialog(dialog)
+                index = vcon.add_dialog(dialog, session=session)
+                indices.setdefault(dialog.type, index)
 
             logger.debug(f"Added {len(dialogs)} dialogs to vCon")
+            return indices
 
         except Exception as e:
             logger.error(f"Error adding dialogs: {str(e)}")
             raise
 
-    def _add_metadata(self, vcon: Vcon, conversation: Conversation):
-        """Add metadata to vCon"""
-        try:
-            # Subject and summary are read-only in vCon, use tags instead
-            if conversation.start_time:
-                vcon.started_at = conversation.start_time.isoformat()
+    def _agent_party(self, vcon: Vcon) -> int:
+        """Index of the agent party (the party that supplies the metadata),
+        or 0 when no party has the agent role."""
+        for i, party in enumerate(vcon.parties):
+            role = party.get("role") if isinstance(party, dict) else getattr(party, "role", None)
+            if role == "agent":
+                return i
+        return 0
 
-            if conversation.end_time:
-                vcon.ended_at = conversation.end_time.isoformat()
-
-            logger.debug("Added metadata to vCon")
-
-        except Exception as e:
-            logger.error(f"Error adding metadata: {str(e)}")
-
-    def _add_attachments(self, vcon: Vcon, conversation: Conversation):
+    def _add_attachments(self, vcon: Vcon, conversation: Conversation, session: int):
         """Add attachments to vCon"""
         try:
+            if not vcon.parties:
+                logger.debug("No parties; skipping call_record attachment")
+                return
+
             attachment_data = {
                 "type": "conversation_metadata",
                 "conversation_id": conversation.id,
@@ -144,11 +171,14 @@ class VconBuilder:
             if conversation.metadata:
                 attachment_data["metadata"] = conversation.metadata
 
-            import json
             vcon.add_attachment(
-                type="call_record",
-                body=json.dumps(attachment_data),
-                encoding="none",
+                purpose="call_record",
+                body=attachment_data,
+                encoding="json",
+                mediatype="application/json",
+                start=conversation.start_time.isoformat(),
+                party=self._agent_party(vcon),
+                session=session,
             )
 
             logger.debug("Added attachments to vCon")
@@ -156,48 +186,48 @@ class VconBuilder:
         except Exception as e:
             logger.error(f"Error adding attachments: {str(e)}")
 
-    def _add_analysis(self, vcon: Vcon, conversation: Conversation):
+    def _add_analysis(
+        self, vcon: Vcon, conversation: Conversation, dialog_indices: dict, session: int
+    ):
         """Add analysis to vCon"""
         try:
-            import json
+            # The analysis is derived from the conversation: point at the
+            # recording when there is one, else the transcript text Dialog,
+            # else the Session.
+            source_dialog: Optional[int] = dialog_indices.get(
+                "recording", dialog_indices.get("text")
+            )
+            scope = {"dialog": source_dialog} if source_dialog is not None else {"sessions": session}
+
+            def add(type_: str, body: dict) -> None:
+                vcon.add_analysis(
+                    type=type_,
+                    vendor="elevenlabs",
+                    body=body,
+                    encoding="json",
+                    mediatype="application/json",
+                    **scope,
+                )
 
             # Add structured transcript with turns if available
-            if hasattr(conversation, '_transcript_data') and conversation._transcript_data:
-                transcript_data = conversation._transcript_data
-
-                # Add transcript analysis with full structured data
-                analysis_data = {
+            transcript_data = getattr(conversation, '_transcript_data', None)
+            if transcript_data:
+                add("transcript", {
                     "type": "transcript",
                     "full_text": transcript_data.get("full_text", ""),
                     "language": "en",
-                    "turns": transcript_data.get("transcript_turns", [])
-                }
-
-                vcon.add_analysis(
-                    type="transcript",
-                    dialog=0,  # First dialog (audio)
-                    vendor="elevenlabs",
-                    body=json.dumps(analysis_data),
-                    encoding="none",
-                )
+                    "turns": transcript_data.get("transcript_turns", []),
+                })
 
                 # Add call analysis if available
                 if transcript_data.get("analysis"):
                     analysis_info = transcript_data["analysis"]
-                    call_analysis_data = {
+                    add("summary", {
                         "type": "summary",
                         "summary": analysis_info.get("summary"),
                         "title": analysis_info.get("title"),
-                        "call_successful": analysis_info.get("call_successful")
-                    }
-
-                    vcon.add_analysis(
-                        type="summary",
-                        dialog=0,
-                        vendor="elevenlabs",
-                        body=json.dumps(call_analysis_data),
-                        encoding="none",
-                    )
+                        "call_successful": analysis_info.get("call_successful"),
+                    })
 
                 logger.debug("Added transcript and analysis to vCon")
 
@@ -212,13 +242,7 @@ class VconBuilder:
                 if conversation.transcript.confidence:
                     analysis_data["confidence"] = conversation.transcript.confidence
 
-                vcon.add_analysis(
-                    type="transcript",
-                    dialog=0,
-                    vendor="elevenlabs",
-                    body=json.dumps(analysis_data),
-                    encoding="none",
-                )
+                add("transcript", analysis_data)
 
                 logger.debug("Added simple transcript to vCon")
 
@@ -228,6 +252,13 @@ class VconBuilder:
     def _add_tags(self, vcon: Vcon, conversation: Conversation):
         """Add tags to vCon"""
         try:
+            if not vcon.parties:
+                # A tags attachment needs the party that adds it.
+                logger.debug("No parties; skipping tags")
+                return
+
+            # vcon-lib writes the tags attachment with party 0 and every
+            # Session as its scope.
             vcon.add_tag("source", "elevenlabs")
             vcon.add_tag("conversation_id", conversation.id)
             vcon.add_tag("agent_id", conversation.agent_id)

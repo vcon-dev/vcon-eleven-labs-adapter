@@ -1,14 +1,44 @@
 """
-Processes conversation dialog data into vCon Dialog objects
+Processes conversation dialog data into vCon Dialog objects (vCon core-05).
+
+Dialog `parties` are the contributors to that Dialog. An ElevenLabs
+conversation is a two-way exchange, so the recording and the transcript list
+every participant; the receivers are on the Session that `VconBuilder` adds.
 """
 
 import base64
+import hashlib
 from typing import List, Optional
 from vcon.dialog import Dialog
 from src.models.elevenlabs_models import Conversation
 from src.logger import get_logger
 
 logger = get_logger(__name__)
+
+# ElevenLabs audio formats to registered media types.
+AUDIO_MEDIATYPES = {
+    "mp3": "audio/mpeg",
+    "mpeg": "audio/mpeg",
+    "wav": "audio/wav",
+    "ogg": "audio/ogg",
+    "opus": "audio/opus",
+    "flac": "audio/flac",
+    "m4a": "audio/mp4",
+    "webm": "audio/webm",
+    "pcm": "audio/L16",
+}
+
+
+def content_hash(data: bytes) -> str:
+    """Return a core-05 content_hash: `sha512-<unpadded base64url digest>`."""
+    digest = base64.urlsafe_b64encode(hashlib.sha512(data).digest()).rstrip(b"=")
+    return "sha512-" + digest.decode("ascii")
+
+
+def audio_mediatype(fmt: Optional[str]) -> str:
+    """Return the media type for an ElevenLabs audio format name."""
+    fmt = (fmt or "wav").lower()
+    return AUDIO_MEDIATYPES.get(fmt, f"audio/{fmt}")
 
 
 class DialogProcessor:
@@ -41,13 +71,10 @@ class DialogProcessor:
                 if audio_dialog:
                     dialogs.append(audio_dialog)
             else:
-                # Create a placeholder recording dialog if no audio
-                logger.debug(f"No audio for conversation {conversation.id}, creating placeholder dialog")
-                placeholder_dialog = DialogProcessor._create_placeholder_dialog(
-                    conversation, party_indices
-                )
-                if placeholder_dialog:
-                    dialogs.append(placeholder_dialog)
+                # No recording Dialog without media: a core-05 recording
+                # Dialog carries its content inline or by URL. The Session
+                # still records the conversation's start and duration.
+                logger.debug(f"No audio for conversation {conversation.id}; no recording dialog")
 
             if include_transcript and conversation.transcript:
                 transcript_dialog = DialogProcessor._create_transcript_dialog(
@@ -75,18 +102,26 @@ class DialogProcessor:
             if not audio:
                 return None
 
+            if not audio.url:
+                # Without a URL (or inline bytes, see
+                # create_embedded_audio_dialog) there is no content to
+                # reference, so no recording Dialog.
+                logger.debug("No audio URL available; no recording dialog")
+                return None
+
             dialog_dict = {
                 "type": "recording",
                 "start": conversation.start_time,
                 "parties": list(party_indices.values()),
-                "mimetype": f"audio/{audio.format}",
+                "mediatype": audio_mediatype(audio.format),
+                "url": audio.url,
             }
-
-            if audio.url:
-                dialog_dict["url"] = audio.url
-                logger.debug(f"Audio dialog with URL: {audio.url}")
-            else:
-                logger.debug("No audio URL available")
+            # core-05: a Dialog that references external content by `url`
+            # carries a `content_hash` of it. Known when the adapter fetched
+            # the audio itself (see ElevenLabsVconAdapter).
+            if audio.content_hash:
+                dialog_dict["content_hash"] = audio.content_hash
+            logger.debug(f"Audio dialog with URL: {audio.url}")
 
             if audio.duration_ms:
                 dialog_dict["duration"] = audio.duration_ms / 1000
@@ -124,8 +159,9 @@ class DialogProcessor:
                 "type": "text",
                 "start": conversation.start_time,
                 "parties": list(party_indices.values()),
-                "mimetype": "text/plain",
+                "mediatype": "text/plain",
                 "body": transcript.text,
+                "encoding": "none",
             }
 
             dialog_dict["metadata"] = {
@@ -142,37 +178,6 @@ class DialogProcessor:
 
         except Exception as e:
             logger.error(f"Error creating transcript dialog: {str(e)}")
-            return None
-
-    @staticmethod
-    def _create_placeholder_dialog(
-        conversation: Conversation, party_indices: dict
-    ) -> Optional[Dialog]:
-        """Create a placeholder Dialog entry for conversations without audio"""
-        try:
-            dialog_dict = {
-                "type": "recording",
-                "start": conversation.start_time,
-                "parties": list(party_indices.values()),
-                "mimetype": "audio/wav",
-            }
-
-            if conversation.duration_ms:
-                dialog_dict["duration"] = conversation.duration_ms / 1000
-
-            dialog_dict["metadata"] = {
-                "status": conversation.status,
-                "note": "Audio not available from API"
-            }
-
-            dialog = Dialog(**dialog_dict)
-            logger.debug(
-                f"Created placeholder dialog for conversation {conversation.id}"
-            )
-            return dialog
-
-        except Exception as e:
-            logger.error(f"Error creating placeholder dialog: {str(e)}")
             return None
 
     @staticmethod
@@ -197,15 +202,16 @@ class DialogProcessor:
             if not audio:
                 return None
 
-            encoded_audio = base64.b64encode(audio_bytes).decode("utf-8")
+            # core-05 inline binary content is unpadded base64url.
+            encoded_audio = base64.urlsafe_b64encode(audio_bytes).rstrip(b"=").decode("ascii")
 
             dialog_dict = {
                 "type": "recording",
                 "start": conversation.start_time,
                 "parties": list(party_indices.values()),
-                "mimetype": f"audio/{audio.format}",
+                "mediatype": audio_mediatype(audio.format),
                 "body": encoded_audio,
-                "encoding": "base64",
+                "encoding": "base64url",
             }
 
             if audio.duration_ms:

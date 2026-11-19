@@ -19,7 +19,7 @@ Convert ElevenLabs agent interactions to standardized vCon (Virtualized Conversa
 
 ### Prerequisites
 
-- Python 3.8+
+- Python 3.12+ (required by vcon 1.x)
 - pip or conda
 - ElevenLabs API key
 - (Optional) AWS credentials for S3 export
@@ -168,13 +168,27 @@ adapter.exporters['webhook'].export(vcon)
 
 ## vCon Structure
 
-Each generated vCon contains:
+Generated vCons follow draft-ietf-vcon-vcon-core-05 (`"vcon": "0.5.0"`), built
+with `vcon>=1.0.3,<2`. Version 1.0.0 of this adapter moved from the 0.4.0 shape
+to 0.5.0; consumers that only understand 0.4.0 must be upgraded (vcon-lib 1.x
+reads both). Each generated vCon contains:
 
 - **Parties**: Agent and customer information
-- **Dialog**: Audio recordings and/or transcripts
-- **Analysis**: Optional transcripts, summaries (if available from ElevenLabs)
-- **Attachments**: Call metadata, call records
-- **Metadata**: UUID, timestamps, subject, source tags
+- **Sessions**: one Session per ElevenLabs conversation (start, duration, and
+  the participants as its `parties`); every Dialog is listed in it
+- **Dialog**: the audio recording (`type: "recording"`, only when there is
+  audio: a `url` with a sha512 `content_hash` when the adapter downloaded the
+  file, or an unpadded base64url `body`) and the transcript text
+  (`type: "text"`); Dialog `parties` are the contributors
+- **Analysis**: Optional transcripts, summaries (if available from ElevenLabs),
+  `vendor: "elevenlabs"`, `encoding: "json"` with the JSON value as `body`,
+  pointing at the recording (or the transcript Dialog when there is no audio)
+- **Attachments**: `call_record` conversation metadata (`encoding: "json"`)
+  and `tags`, scoped with `party` plus `session`
+- **Metadata**: UUID, `created_at`, source tags
+
+A conversation without audio no longer gets a placeholder recording Dialog;
+its start and duration are on the Session.
 
 ## Architecture
 

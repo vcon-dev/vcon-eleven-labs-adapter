@@ -209,8 +209,10 @@ class TestVconBuilder:
                 elif hasattr(tag, 'value'):
                     tag_values.append(tag.value)
         
-        # Just check that started_at is set
-        assert vcon.started_at is not None
+        # The conversation's start is on its Session (core-05)
+        session = vcon.to_dict()["sessions"][0]
+        assert session["start"] == sample_conversation.start_time.isoformat()
+        assert session["duration"] == sample_conversation.duration_ms / 1000
 
     def test_build_vcon_tags(self, sample_conversation):
         """Test that tags are added to vCon"""
@@ -232,3 +234,56 @@ class TestVconValidation:
 
         assert vcon.uuid is not None
         assert len(vcon.parties) > 0
+
+    @pytest.mark.parametrize("fixture", ["sample_conversation", "sample_conversation_no_audio"])
+    def test_built_vcon_passes_vcon_lib_validation(self, fixture, request):
+        """Built vCons are core-05 (0.5.0) and pass vcon-lib's is_valid()"""
+        conversation = request.getfixturevalue(fixture)
+        conversation._transcript_data = {
+            "full_text": "Agent: Hello\n\nUser: Hi",
+            "transcript_turns": [{"role": "agent", "message": "Hello"}],
+            "analysis": {"summary": "s", "title": "t", "call_successful": "success"},
+        }
+
+        vcon = VconBuilder().build_vcon(conversation)
+
+        assert vcon.is_valid() == (True, [])
+        assert vcon.get_validation_warnings() == []
+        data = vcon.to_dict()
+        assert data["vcon"] == "0.5.0"
+        assert len(data["sessions"]) == 1
+        session = data["sessions"][0]
+        assert session["parties"] == [0, 1]
+        assert session["dialog"] == list(range(len(data["dialog"])))
+        for dialog in data["dialog"]:
+            assert dialog["type"] in ("recording", "text")
+            assert "mimetype" not in dialog
+        assert {a["purpose"] for a in data["attachments"]} == {"call_record", "tags"}
+        for attachment in data["attachments"]:
+            assert attachment["party"] == 0  # the agent
+            assert attachment["session"] in (0, [0])  # tags list every Session
+            assert not isinstance(attachment["body"], str)
+        assert [a["type"] for a in data["analysis"]] == ["transcript", "summary"]
+        for analysis in data["analysis"]:
+            assert analysis["encoding"] == "json"
+            assert isinstance(analysis["body"], dict)
+            assert analysis["dialog"] in range(len(data["dialog"]))
+
+    def test_no_audio_has_no_recording_dialog(self, sample_conversation_no_audio):
+        """Without audio there is no placeholder recording Dialog"""
+        data = VconBuilder().build_vcon(sample_conversation_no_audio).to_dict()
+
+        assert [d["type"] for d in data["dialog"]] == ["text"]
+
+    def test_downloaded_audio_url_carries_content_hash(self, sample_conversation):
+        """A recording referenced by url carries its sha512 content_hash"""
+        from src.transformers.dialog_processor import content_hash
+
+        sample_conversation.audio.content_hash = content_hash(b"audio")
+        data = VconBuilder().build_vcon(sample_conversation).to_dict()
+
+        recording = data["dialog"][0]
+        assert recording["url"] == sample_conversation.audio.url
+        assert recording["content_hash"].startswith("sha512-")
+        assert "=" not in recording["content_hash"]
+        assert recording["mediatype"] == "audio/wav"

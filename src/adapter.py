@@ -9,6 +9,7 @@ from src.config import load_config, AdapterConfig
 from src.logger import setup_logger, get_logger
 from src.extractors import ElevenLabsExtractor
 from src.transformers import VconBuilder
+from src.transformers.dialog_processor import content_hash
 from src.exporters import FileExporter, S3Exporter, WebhookExporter
 from src.models.elevenlabs_models import Conversation
 
@@ -215,7 +216,9 @@ class ElevenLabsVconAdapter:
                         sample_rate=16000,
                         channels=1,
                         format="mp3",
-                        size_bytes=len(audio_bytes)
+                        size_bytes=len(audio_bytes),
+                        # core-05: a Dialog with `url` carries its content_hash
+                        content_hash=content_hash(audio_bytes),
                     )
 
             # Fetch transcript
