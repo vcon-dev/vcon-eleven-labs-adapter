@@ -114,8 +114,8 @@ docs/
 
 ## Technology Stack
 
-- **Language**: Python 3.8+
-- **vCon Library**: vcon>=0.5.0
+- **Language**: Python 3.12+
+- **vCon Library**: vcon>=1.0.3,<2 (vCon core-05, syntax 0.5.0)
 - **ElevenLabs SDK**: elevenlabs>=0.3.0
 - **AWS**: boto3>=1.28.0
 - **Validation**: Pydantic>=2.0.0

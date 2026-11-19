@@ -57,8 +57,9 @@ class WebhookExporter:
             True if successful, False otherwise
         """
         try:
-            vcon_json = vcon.to_json()
-            payload = json.dumps(vcon_json)
+            # The vCon itself is the request body (to_json() is already a
+            # JSON string; it used to be json.dumps()'d a second time).
+            payload = vcon.to_json()
 
             headers = self._build_headers(custom_headers)
 
@@ -157,7 +158,7 @@ class WebhookExporter:
     def _export_batch_request(self, vcons: List[Vcon]) -> bool:
         """Export a batch of vCons in a single request"""
         try:
-            batch_data = [vcon.to_json() for vcon in vcons]
+            batch_data = [vcon.to_dict() for vcon in vcons]
             payload = json.dumps({"vcons": batch_data})
 
             headers = self._build_headers()
@@ -189,7 +190,7 @@ class WebhookExporter:
         """Build HTTP headers for webhook request"""
         headers = {
             "Content-Type": "application/json",
-            "User-Agent": "vcon-elevenlabs-adapter/0.1.0",
+            "User-Agent": "vcon-elevenlabs-adapter/1.0.0",
         }
 
         if self.auth_type == "bearer" and self.api_key:

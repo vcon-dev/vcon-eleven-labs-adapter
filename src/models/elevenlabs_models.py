@@ -37,6 +37,8 @@ class AudioRecording(BaseModel):
     channels: int = 1
     format: str = "wav"
     size_bytes: Optional[int] = None
+    # sha512-<base64url> of the audio bytes, set when the adapter has them
+    content_hash: Optional[str] = None
 
 
 class Transcript(BaseModel):

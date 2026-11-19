@@ -104,6 +104,9 @@ class OpenAIExporter:
         """Prepare vCon for OpenAI upload."""
         if isinstance(vcon, dict):
             return vcon
+        elif hasattr(vcon, "to_dict"):
+            # vcon.Vcon
+            return vcon.to_dict()
         elif hasattr(vcon, "dict"):
             return vcon.dict()
         elif hasattr(vcon, "__dict__"):
